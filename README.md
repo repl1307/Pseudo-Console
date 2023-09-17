@@ -2,7 +2,12 @@
 An in-browser pseudo-console made with JavaScript. 
 
 ## Usage
-Copy the `console.js` file and add it to your web project. To actually use the console add one of the following options to the beginning of your first `.js` file:
+Copy the `console.js` file and add it as file to your web project. Then in the head of the main `.html` file add:
+```html
+<script src="<Add/Path/To/console.js>"></script>
+```
+
+To actually use the console add one of the following options to the beginning of your first `.js` file:
 ```javascript
 //create a new Console attached to the window object as 'window.debug'
 new Console();
