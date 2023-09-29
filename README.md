@@ -21,3 +21,7 @@ debug.error("Mistakes have been made...");
 debug.clear();
 
 ```
+The console is able to output **objects**, **arrays**, and **HTML**.
+
+## Demo
+Go to https://repl1307.github.io/Pseudo-Console/
