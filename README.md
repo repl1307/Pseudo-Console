@@ -1,5 +1,5 @@
 # Pseudo-Console
-An in-browser pseudo-console made with JavaScript. 
+An in-browser pseudo-console made with JavaScript. There is no real reason to use this over a browser's built-in DevTools.
 
 ## Usage
 Copy the `console.js` file and add it as file to your web project. Then in the head of the main `.html` file add:
