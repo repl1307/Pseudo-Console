@@ -51,6 +51,7 @@ class Console {
       resize: both;
       font-size: 1.25rem;
       user-select: none;
+      z-index: 50000;
     `;
     this.consoleContainer.addEventListener('contextmenu', e => {
       e.preventDefault();
@@ -100,8 +101,7 @@ class Console {
       try {
         let command = this.input.value;
         let parsed = await this.parse.plainText(command);
-        console.log(parsed);
-        this.log(parsed);
+
         if (command.replaceAll(' ', '') == 'log(this)' ||
           command.replaceAll(' ', '') == 'log(this);') {
           command = 'log(debug)';
@@ -309,7 +309,7 @@ class Console {
       return;
     }
     let messageDiv = this.createMessage();
-    let messageP = this.createMessageText( message);
+    let messageP = this.createMessageText(message);
     messageP.style.backgroundColor = 'rgba(0,0,0,0)';
     messageDiv.style.backgroundColor = 'rgba(255, 255, 0, 0.5)';
     let lineP = document.createElement('p');
@@ -338,16 +338,23 @@ class Console {
       }
       //if message is error
       if(message.type == 'error'){
-        message.message = '<i class="fa-solid fa-circle-exclamation"></i> '+message.message;
-        await this.appendErrors(message.message, message.url, message.line, 
+        const div = document.createElement('div');
+        div.appendChild(this.createIcon('error'));
+        const span = document.createElement('span');
+        span.style.paddingLeft = '5px';
+        span.textContent = message.message;
+        div.appendChild(span);
+        await this.appendErrors(div, message.url, message.line, 
           message.col, message.error, message.stack );
       }
       //if message is log
       else if(message.type == 'log'){
         //if message is referring to an html element
         if (typeof message.message == 'object' && message.message instanceof Element) {
-          message.message = message.message.cloneNode(true);
-          parsedMessages.push(message.message);
+          // const div = document.createElement('div');
+          // div.textContent = message.message.outerHTML.toString();
+          // parsedMessages.push(div);
+          parsedMessages.push(await this.parse.html(message.message));
         }
         else {
           parsedMessages.push(await this.parse.message(message.message));
@@ -355,8 +362,12 @@ class Console {
         await this.appendLogs(parsedMessages[parsedMessages.length-1], message.stack);
       }
       else if(message.type == 'warn'){
-        message.message = '<i class="fa-solid fa-triangle-exclamation"></i> '+message.message;
-        await this.appendWarns(message.message, message.stack);
+        const div = document.createElement('div');
+        div.appendChild(this.createIcon('error'));
+        const span = document.createElement('span');
+        span.style.paddingLeft = '5px';
+        span.textContent = message.message;
+        div.appendChild(span);await this.appendWarns(div, message.stack);
       }
     }
     
@@ -428,8 +439,20 @@ class Console {
     });
     return messageText;
   }
+  //create icon for warning and error messages
+  createIcon(icon){
+    const i = document.createElement('i');
+    i.classList.add('fa-solid');
+    if(icon == 'warn'){
+      i.classList.add('fa-triangle-exclamation');
+    }
+    else if(icon == 'error'){
+      i.classList.add('fa-circle-exclamation');
+    }
+    return i;
+  }
   //create span for styling message text
-  createSpan = async (text, color = "white") => {
+  createSpan = async (text="", color = "white") => {
     text = text.toString().replaceAll('<br>', '\r\n');
     text = text.toString().replaceAll('&nbsp;', ' ');
     const span = document.createElement('span');
@@ -465,7 +488,7 @@ class Console {
     },
     //parse object as formatted console string
     object: async (obj, indentCount = 1, separator = '&nbsp;&nbsp;&nbsp;') => {
-      const mainSpan = await this.createSpan('{<br>');
+      let mainSpan = await this.createSpan('{<br>');
       let total = Object.keys(obj).length;
       let completed = 0;
       for (const [key, value] of Object.entries(obj)) {
@@ -478,7 +501,7 @@ class Console {
           this.input.placeholder = 'Loading... '+completed+'/'+total+' Total: '+this.queueCompleted+'/'+(this.queueTotal);
           this.input.disabled = true;
           if(completed >= total){
-            console.log(completed+'ads');
+            console.log(completed+' properties loaded');
           }
         }
         mainSpan.appendChild(await this.createSpan(key, '#10ad5c'));
@@ -515,7 +538,7 @@ class Console {
         mainSpan.innerHTML += separator;
       }
       mainSpan.innerHTML += '}';
-      return mainSpan;
+        return mainSpan;
     },
     //parse array as formatted console string
     array: async (array, indentCount = 1, separator = '&nbsp;&nbsp;&nbsp;') => {
@@ -604,11 +627,90 @@ class Console {
     bool: async (boolean) => {
       return await this.createSpan(boolean, '#5b6bf5');
     },
+    //parse html as formatted console string
+    html: async (html) => {
+      let parsedHTML = await this.createSpan("", "grey");
+      const appendChildren = async (elem, elemDiv) => {
+        for(const child of elem.children){
+          let startTag = child.outerHTML.replace(child.innerHTML, '').substring(0,child.outerHTML.indexOf('>')+1);
+          let endTag = child.outerHTML.replace(child.innerHTML, '').substring(child.outerHTML.indexOf('>')+1);
+          const startTagObj = {
+            beginning: null,
+            attributes: []
+          }
+          if(startTag.includes(' ')){
+            startTagObj.beginning = startTag.substring(0, startTag.indexOf(' '))
+          }
+          else{
+            startTagObj.beginning = startTag;
+          }
+          startTagObj.tagName = startTagObj.beginning;
+          const attributes = startTag.substring(startTag.indexOf(' '), startTag.indexOf('>')).split('"');
+          for(let i = 1; i  < attributes.length; i += 2){
+            startTagObj.attributes.push(attributes[i-1]+attributes[i]);
+          }
+          if(startTagObj.attributes.length == 0){
+            startTagObj.beginning += '';
+          }
+          //formatting attributes
+          startTagObj.beginning = await this.createSpan(startTagObj.beginning, '');
+          for(let i = 0; i < startTagObj.attributes.length; i++){
+            let segments = startTagObj.attributes[i].split('=');
+            let parsedSegments = []
+            for(let j = 0; j < segments.length; j++){
+              if( j%2 == 0)
+                parsedSegments.push(segments[j]+'=');
+              else
+                parsedSegments.push('"'+segments[j]+'"');
+            }
+            startTagObj.attributes[i] = await this.createSpan('', '');
+            for(let j = 0; j < parsedSegments.length; j++){
+              startTagObj.attributes[i].appendChild(await this.createSpan(parsedSegments[j], j%2==0? 'darkgreen' : '#2a81bf'))
+            }
+          }
+
+          //appends for start tag
+          startTag = await this.createSpan('', '');
+          startTag.appendChild(startTagObj.beginning);
+          for(const attr of startTagObj.attributes){ startTag.appendChild(attr)}
+          
+          const selfClosingTags = ['area', 'br', 'base', 'col', 'embed',, 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
+          let isSelfClosing = false;
+          selfClosingTags.forEach(tag => {
+            if(startTagObj.tagName.includes(tag))
+              isSelfClosing = true;
+          });
+          startTagObj.closing = isSelfClosing? '/>' : '>';
+          if(startTagObj.attributes.length > 0)
+            startTag.appendChild(await this.createSpan(startTagObj.closing, ''));
+          
+          endTag = await this.createSpan(endTag, '');
+          
+          const childDiv = await this.createSpan('', '#de291d');
+          childDiv.appendChild(startTag);
+          //if children exist regarding current element apply different formatting
+          if(child.children.length > 0){
+            childDiv.appendChild(document.createElement('br'));
+            //childDiv.innerHTML+="&nbsp;&nbsp;&nbsp;";
+            await appendChildren(child, childDiv);
+          } else{
+            childDiv.appendChild(await this.createSpan(child.textContent, "grey"));
+          }
+          childDiv.appendChild(endTag);
+          childDiv.appendChild(document.createElement('br'));
+          elemDiv.appendChild(childDiv);
+                  
+        }
+      };
+      await appendChildren(html, parsedHTML);
+  
+      return parsedHTML;
+    },
     // parse everything else as plain text
     plainText: async (text) => {
       if(!text[0]){ return await this.createSpan('Uh oh')}
       if (text[0] == '"' && text[text.length - 1] == '"' && text.length >= 3) {
-        text = text.substring(1, text.length - 2);
+        text = text.substring(1, text.length - 1);
       }
       return await this.createSpan(text);
     },
