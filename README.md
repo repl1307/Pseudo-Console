@@ -23,4 +23,4 @@ debug.clear();
 ```
 The console is able to parse and output **objects**, **arrays**, and **HTML**.
 ## Demo
-Go to [https://repl1307.github.io/Pseudo-Console/](https://repl1307.github.io/Pseudo-Console/)
+Go to <a href="https://repl1307.github.io/Pseudo-Console/" target="_blank">https://repl1307.github.io/Pseudo-Console/</a>
