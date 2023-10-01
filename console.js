@@ -1,17 +1,4 @@
-/* 
-  Must include script in head of html file
-   <script src = "console.js"></script>
-   
-  Example Usage:
-    const debug = new Console();
-    debug.log('This is a cool message!');
-    debug.error(new Error('Uh oh! An error occurred!'));
-  Or:
-    new Console();
-    debug.log('This is a cool message!');
-    debug.warn('Uh oh! Warning!');
-    debug.clear();
-*/
+
 //icon handling
 let iconScript = document.createElement('script');
 iconScript.src = 'https://kit.fontawesome.com/7a8d9e0b6f.js';
@@ -232,7 +219,7 @@ class Console {
           this.executingQueue = false;
         });
       }
-    }, 100);
+    }, 10);
   }
   //check if is mobile
   isMobile = function() {
@@ -491,12 +478,17 @@ class Console {
       let mainSpan = await this.createSpan('{<br>');
       let total = Object.keys(obj).length;
       let completed = 0;
+      let hasChildren = false;
+      Object.values(obj).forEach(val => hasChildren = typeof val === 'object');
       for (const [key, value] of Object.entries(obj)) {
+        const separatorDiv = document.createElement('span');
         for (let i = 0; i < indentCount; i++) {
-          mainSpan.innerHTML += separator;
+          separatorDiv.innerHTML += separator;
         }
+        mainSpan.appendChild(separatorDiv);
+        
         await new Promise(res => setTimeout(res, 0));
-        if(indentCount == 2){
+        if(indentCount == 2 || !hasChildren){
           completed++;
           this.input.placeholder = 'Loading... '+completed+'/'+total+' Total: '+this.queueCompleted+'/'+(this.queueTotal);
           this.input.disabled = true;
@@ -505,7 +497,10 @@ class Console {
           }
         }
         mainSpan.appendChild(await this.createSpan(key, '#10ad5c'));
-        mainSpan.innerHTML += ':&nbsp;';
+        const indent = document.createElement('span');
+        indent.innerHTML = ':&nbsp;';
+        mainSpan.appendChild(indent);
+
         //check type of value and display accordingly
         if (Array.isArray(value)) {
           mainSpan.appendChild(await this.parse.array(value, indentCount + 1));
@@ -525,20 +520,25 @@ class Console {
         else {
           mainSpan.appendChild(await this.parse.plainText(value));
         }
+        const br = document.createElement('span');
         if (!Array.isArray(value))
-          mainSpan.innerHTML += ',<br>';
+          br.innerHTML = ',<br>';
         else
-          mainSpan.innerHTML += '<br>';
-
+          br.innerHTML = '<br>';
+        
+        mainSpan.appendChild(br);
         if(indentCount == 1){
           this.queueCompleted++;
         }
       }
+      const end = document.createElement('span');
       for (let i = 0; i < indentCount - 1; i++) {
-        mainSpan.innerHTML += separator;
+        end.innerHTML += separator;
       }
-      mainSpan.innerHTML += '}';
-        return mainSpan;
+      end.innerHTML += '}';
+
+      mainSpan.appendChild(end);
+      return mainSpan;
     },
     //parse array as formatted console string
     array: async (array, indentCount = 1, separator = '&nbsp;&nbsp;&nbsp;') => {
@@ -546,10 +546,12 @@ class Console {
       let total = array.length;
       let completed = 0;
       if (indentCount > 1) {
+        const separatorSpan = document.createElement('span');
+        separatorSpan.innerHTML += '<br>';
         for (let i = 0; i < indentCount - 1; i++) {
-          mainSpan.innerHTML = separator + mainSpan.innerHTML;
+          separatorSpan.innerHTML += separator;
         }
-        mainSpan.innerHTML = '<br>' + mainSpan.innerHTML;
+        mainSpan.insertBefore(separatorSpan, mainSpan.firstChild);
       }
       let count = 0;
       for (const item of array) {
@@ -559,13 +561,14 @@ class Console {
           this.input.placeholder = 'Loading... '+completed+'/'+total+' Total: '+this.queueCompleted+'/'+this.queueTotal;
           this.input.disabled = true;
         }
+        const br = document.createElement('span');
         //check type of item in array and handle accordingly
         if (Array.isArray(item)) {
           mainSpan.appendChild(await this.parse.array(item, indentCount + 1));
         }
         else if (typeof item == 'object') {
           mainSpan.appendChild(await this.parse.object(item, indentCount + 1));
-          mainSpan.innerHTML += ',<br>';
+          br.innerHTML += ',<br>';
         }
         else if (typeof item == 'string') {
           mainSpan.appendChild(await this.parse.string(item));
@@ -581,29 +584,31 @@ class Console {
         }
         count++;
         if (count < array.length && typeof item != 'object') {
-          mainSpan.innerHTML += ',&nbsp;&nbsp;';
+          br.innerHTML += ',&nbsp;&nbsp;';
         }
+        mainSpan.appendChild(br);
         if(indentCount == 1){
           this.queueCompleted++;
         }
       }
       //handling end of array formatting
+      const end = document.createElement('span');
       if (indentCount > 1) {
         if (!Array.isArray(array[array.length - 1])) {
-          mainSpan.innerHTML += '],&nbsp;&nbsp;';
+          end.innerHTML += '],&nbsp;&nbsp;';
         }
         else {
-          mainSpan.innerHTML += '<br>'
+          end.innerHTML += '<br>'
           for (let i = 0; i < indentCount - 1; i++) {
-            mainSpan.innerHTML += separator;
+            end.innerHTML += separator;
           }
-          mainSpan.innerHTML += '],';
+          end.innerHTML += '],';
         }
       }
       else {
-        mainSpan.innerHTML += '<br>]';
+        end.innerHTML += '<br>]';
       }
-
+      mainSpan.appendChild(end);
 
       return mainSpan;
     },
