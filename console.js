@@ -6,7 +6,7 @@ iconScript.crossorigin = 'anonymous';
 document.head.appendChild(iconScript);
 //custom console
 class Console {
-  constructor() {
+  constructor(top='30px', left='30px') {
     this.console = document.createElement('div');
     this.console.id = 'debugger';
     this.console.style = `
@@ -24,8 +24,8 @@ class Console {
       padding: 5px;
       color: white;
       border: 1px solid white;
-      top: 30px;
-      right: 30px;
+      top: ${top};
+      right: ${left};
       background-color: rgba(0, 0, 0, 0.9);
       min-width: max(20vw, 300px);
       width: max(35vw, 400px);
@@ -455,6 +455,11 @@ class Console {
       if (Array.isArray(message)) {
         parsedMessage = await this.parse.array(message);
       }
+      else if(message instanceof Element){
+        const html = await this.parse.html(message, indentCount +1);
+        console.log(html)
+        mainSpan.appendChild(html);
+      }
       else if (typeof message == 'object') {
         parsedMessage = await this.parse.object(message);
       }
@@ -475,11 +480,16 @@ class Console {
     },
     //parse object as formatted console string
     object: async (obj, indentCount = 1, separator = '&nbsp;&nbsp;&nbsp;') => {
-      let mainSpan = await this.createSpan('{<br>');
+      if(obj == null){
+        return this.createSpan('null','purple');
+      }
+      let sep = separator;
+      for(let i = 0; i < indentCount; i++){ sep += separator; }
+      let mainSpan = await this.createSpan(indentCount <= 1?'{<br>' : sep+'{<br>');
       let total = Object.keys(obj).length;
       let completed = 0;
       let hasChildren = false;
-      Object.values(obj).forEach(val => hasChildren = typeof val === 'object');
+      Object.values(obj).forEach(val => hasChildren = typeof val == 'object');
       for (const [key, value] of Object.entries(obj)) {
         const separatorDiv = document.createElement('span');
         for (let i = 0; i < indentCount; i++) {
@@ -504,6 +514,11 @@ class Console {
         //check type of value and display accordingly
         if (Array.isArray(value)) {
           mainSpan.appendChild(await this.parse.array(value, indentCount + 1));
+        }
+        else if(value instanceof Element){
+          const html = await this.parse.html(value, indentCount +1);
+          console.log(html)
+          mainSpan.appendChild(html);
         }
         else if (typeof value == 'object') {
           mainSpan.appendChild(await this.parse.object(value, indentCount + 1));
@@ -545,8 +560,9 @@ class Console {
       const mainSpan = await this.createSpan('[');
       let total = array.length;
       let completed = 0;
+      
+      const separatorSpan = document.createElement('span');
       if (indentCount > 1) {
-        const separatorSpan = document.createElement('span');
         separatorSpan.innerHTML += '<br>';
         for (let i = 0; i < indentCount - 1; i++) {
           separatorSpan.innerHTML += separator;
@@ -566,7 +582,13 @@ class Console {
         if (Array.isArray(item)) {
           mainSpan.appendChild(await this.parse.array(item, indentCount + 1));
         }
+        else if(item instanceof Element){
+          const html = await this.parse.html(item, indentCount +1);
+          console.log(html)
+          mainSpan.appendChild(html);
+        }
         else if (typeof item == 'object') {
+          mainSpan.appendChild(separatorSpan.cloneNode(true));
           mainSpan.appendChild(await this.parse.object(item, indentCount + 1));
           br.innerHTML += ',<br>';
         }
@@ -594,12 +616,12 @@ class Console {
       //handling end of array formatting
       const end = document.createElement('span');
       if (indentCount > 1) {
-        if (!Array.isArray(array[array.length - 1])) {
+        if (!Array.isArray(array[array.length - 1]) && !typeof array[array.length - 1] == 'object') {
           end.innerHTML += '],&nbsp;&nbsp;';
         }
         else {
           end.innerHTML += '<br>'
-          for (let i = 0; i < indentCount - 1; i++) {
+          for (let i = 0; i < indentCount-1; i++) {
             end.innerHTML += separator;
           }
           end.innerHTML += '],';
@@ -636,6 +658,12 @@ class Console {
     html: async (html) => {
       let parsedHTML = await this.createSpan("", "grey");
       const appendChildren = async (elem, elemDiv) => {
+        if(elem.children.length <= 0){
+          const child = elem.cloneNode(true);
+          elem = await this.createSpan('','');
+          elem.appendChild(child);
+        }
+        let count = 0;
         for(const child of elem.children){
           let startTag = child.outerHTML.replace(child.innerHTML, '').substring(0,child.outerHTML.indexOf('>')+1);
           let endTag = child.outerHTML.replace(child.innerHTML, '').substring(child.outerHTML.indexOf('>')+1);
@@ -696,24 +724,29 @@ class Console {
           //if children exist regarding current element apply different formatting
           if(child.children.length > 0){
             childDiv.appendChild(document.createElement('br'));
-            //childDiv.innerHTML+="&nbsp;&nbsp;&nbsp;";
             await appendChildren(child, childDiv);
           } else{
             childDiv.appendChild(await this.createSpan(child.textContent, "grey"));
           }
           childDiv.appendChild(endTag);
-          childDiv.appendChild(document.createElement('br'));
+          
+          if(elem.children.length-1 > count)
+            childDiv.appendChild(document.createElement('br'));
+          
           elemDiv.appendChild(childDiv);
-                  
+          count++; 
         }
       };
+
       await appendChildren(html, parsedHTML);
-  
       return parsedHTML;
     },
     // parse everything else as plain text
     plainText: async (text) => {
-      if(!text[0]){ return await this.createSpan('Uh oh')}
+      if(typeof text=='function'){
+        return await this.createSpan('function(){ native code }', 'darkgreen');
+      }
+      else if(!text[0]){ return await this.createSpan('Uh oh')}
       if (text[0] == '"' && text[text.length - 1] == '"' && text.length >= 3) {
         text = text.substring(1, text.length - 1);
       }
